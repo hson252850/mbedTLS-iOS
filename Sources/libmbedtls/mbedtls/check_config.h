@@ -101,7 +101,8 @@
 
 #if defined(MBEDTLS_ECDSA_C) &&            \
     ( !defined(MBEDTLS_ECP_C) ||           \
-      !( defined(MBEDTLS_ECP_DP_SECP192R1_ENABLED) || \
+      !( defined(MBEDTLS_ECP_DP_SECP160R1_ENABLED) || \
+         defined(MBEDTLS_ECP_DP_SECP192R1_ENABLED) || \
          defined(MBEDTLS_ECP_DP_SECP224R1_ENABLED) || \
          defined(MBEDTLS_ECP_DP_SECP256R1_ENABLED) || \
          defined(MBEDTLS_ECP_DP_SECP384R1_ENABLED) || \
@@ -250,6 +251,10 @@
 
 #if defined(MBEDTLS_ECP_NORMALIZE_MXZ_ALT) && !defined(MBEDTLS_ECP_INTERNAL_ALT)
 #error "MBEDTLS_ECP_NORMALIZE_MXZ_ALT defined, but not all prerequisites"
+#endif
+
+#if defined(MBEDTLS_ECP_NO_FALLBACK) && !defined(MBEDTLS_ECP_INTERNAL_ALT)
+#error "MBEDTLS_ECP_NO_FALLBACK defined, but no alternative implementation enabled"
 #endif
 
 #if defined(MBEDTLS_HAVEGE_C) && !defined(MBEDTLS_TIMING_C)

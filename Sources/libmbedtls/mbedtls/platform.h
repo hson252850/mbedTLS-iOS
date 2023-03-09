@@ -130,11 +130,18 @@ extern "C" {
 /*
  * The function pointers for calloc and free.
  */
+#ifndef MTK_BOOTLOADER_USE_MBEDTLS
+#include "syslog.h"
+#endif
 #if defined(MBEDTLS_PLATFORM_MEMORY)
 #if defined(MBEDTLS_PLATFORM_FREE_MACRO) && \
     defined(MBEDTLS_PLATFORM_CALLOC_MACRO)
 #define mbedtls_free       MBEDTLS_PLATFORM_FREE_MACRO
 #define mbedtls_calloc     MBEDTLS_PLATFORM_CALLOC_MACRO
+
+#ifdef MBEDTLS_PLATFORM_MEMORY_PROTOTYPE_HEADER
+#include MBEDTLS_PLATFORM_MEMORY_PROTOTYPE_HEADER
+#endif
 #else
 /* For size_t */
 #include <stddef.h>
@@ -188,6 +195,9 @@ int mbedtls_platform_set_fprintf( int (*fprintf_func)( FILE *stream, const char 
 /*
  * The function pointers for printf
  */
+#if defined(MTK_DEBUG_LEVEL_NONE)
+#define mbedtls_printf
+#else /* MTK_DEBUG_LEVEL_NONE */
 #if defined(MBEDTLS_PLATFORM_PRINTF_ALT)
 extern int (*mbedtls_printf)( const char *format, ... );
 
@@ -205,7 +215,12 @@ int mbedtls_platform_set_printf( int (*printf_func)( const char *, ... ) );
 #if defined(MBEDTLS_PLATFORM_PRINTF_MACRO)
 #define mbedtls_printf     MBEDTLS_PLATFORM_PRINTF_MACRO
 #else
+#ifdef MBEDTLS_MTK
+#define mbedtls_printf(x, ...) LOG_I(mbedtls, x, ##__VA_ARGS__)
+#else
 #define mbedtls_printf     printf
+#endif
+#endif /* MBEDTLS_PLATFORM_PRINTF_MACRO */
 #endif /* MBEDTLS_PLATFORM_PRINTF_MACRO */
 #endif /* MBEDTLS_PLATFORM_PRINTF_ALT */
 
@@ -240,9 +255,13 @@ int mbedtls_platform_set_snprintf( int (*snprintf_func)( char * s, size_t n,
 #if defined(MBEDTLS_PLATFORM_SNPRINTF_MACRO)
 #define mbedtls_snprintf   MBEDTLS_PLATFORM_SNPRINTF_MACRO
 #else
+#ifdef MBEDTLS_MTK
+#define mbedtls_snprintf   snprintf
+#else
 #define mbedtls_snprintf   MBEDTLS_PLATFORM_STD_SNPRINTF
 #endif /* MBEDTLS_PLATFORM_SNPRINTF_MACRO */
 #endif /* MBEDTLS_PLATFORM_SNPRINTF_ALT */
+#endif
 
 /*
  * The function pointers for vsnprintf

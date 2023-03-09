@@ -61,7 +61,8 @@
 
 /* Flags indicating whether to include code that is specific to certain
  * types of curves. These flags are for internal library use only. */
-#if defined(MBEDTLS_ECP_DP_SECP192R1_ENABLED) || \
+#if defined(MBEDTLS_ECP_DP_SECP160R1_ENABLED) || \
+    defined(MBEDTLS_ECP_DP_SECP192R1_ENABLED) || \
     defined(MBEDTLS_ECP_DP_SECP224R1_ENABLED) || \
     defined(MBEDTLS_ECP_DP_SECP256R1_ENABLED) || \
     defined(MBEDTLS_ECP_DP_SECP384R1_ENABLED) || \
@@ -109,6 +110,7 @@ extern "C" {
 typedef enum
 {
     MBEDTLS_ECP_DP_NONE = 0,       /*!< Curve not defined. */
+    MBEDTLS_ECP_DP_SECP160R1,
     MBEDTLS_ECP_DP_SECP192R1,      /*!< Domain parameters for the 192-bit curve defined by FIPS 186-4 and SEC1. */
     MBEDTLS_ECP_DP_SECP224R1,      /*!< Domain parameters for the 224-bit curve defined by FIPS 186-4 and SEC1. */
     MBEDTLS_ECP_DP_SECP256R1,      /*!< Domain parameters for the 256-bit curve defined by FIPS 186-4 and SEC1. */

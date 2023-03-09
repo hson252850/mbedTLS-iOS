@@ -24,6 +24,9 @@
 #include "mbedtls/platform.h"
 #include "mbedtls/platform_util.h"
 #include "mbedtls/error.h"
+#if !defined(MTK_DEBUG_LEVEL_NONE) && !defined(MBEDTLS_PLATFORM_PRINTF_ALT) && !defined(MBEDTLS_PLATFORM_PRINTF_MACRO)
+//log_create_module(mbedtls, PRINT_LEVEL_INFO);
+#endif
 
 /* The compile time configuration of memory allocation via the macros
  * MBEDTLS_PLATFORM_{FREE/CALLOC}_MACRO takes precedence over the runtime
@@ -32,14 +35,29 @@
 #if defined(MBEDTLS_PLATFORM_MEMORY) &&                 \
     !( defined(MBEDTLS_PLATFORM_CALLOC_MACRO) &&        \
        defined(MBEDTLS_PLATFORM_FREE_MACRO) )
-
+#if defined(MBEDTLS_MTK) && !defined(MTK_BOOTLOADER_USE_MBEDTLS)
+#include "FreeRTOSConfig.h"
+#include "FreeRTOS.h"
+#include "portable.h"
+#include "string.h"
+#endif
 #if !defined(MBEDTLS_PLATFORM_STD_CALLOC)
 static void *platform_calloc_uninit( size_t n, size_t size )
 {
+#if !defined(MBEDTLS_MTK) || defined(MTK_BOOTLOADER_USE_MBEDTLS)
     ((void) n);
     ((void) size);
     return( NULL );
-}
+#else
+#if defined(CONFIG_MBEDTLS_HW_CRYPTO) && defined(MTK_MBEDTLS_HW_USE_NC_MEMORY)
+    void *ptr = pvPortMallocNC(n * size);
+    memset(ptr, 0, n * size);
+    return ptr;
+#else
+    return pvPortCalloc(n, size);
+#endif
+#endif
+	}
 
 #define MBEDTLS_PLATFORM_STD_CALLOC   platform_calloc_uninit
 #endif /* !MBEDTLS_PLATFORM_STD_CALLOC */
@@ -47,7 +65,15 @@ static void *platform_calloc_uninit( size_t n, size_t size )
 #if !defined(MBEDTLS_PLATFORM_STD_FREE)
 static void platform_free_uninit( void *ptr )
 {
+#if !defined(MBEDTLS_MTK) || defined(MTK_BOOTLOADER_USE_MBEDTLS)
     ((void) ptr);
+#else
+#if defined(CONFIG_MBEDTLS_HW_CRYPTO) && defined(MTK_MBEDTLS_HW_USE_NC_MEMORY)
+    vPortFreeNC(ptr);
+#else
+    vPortFree(ptr);
+#endif
+#endif
 }
 
 #define MBEDTLS_PLATFORM_STD_FREE     platform_free_uninit

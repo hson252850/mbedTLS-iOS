@@ -32,7 +32,7 @@
 
 #if defined(MBEDTLS_PKCS11_C)
 
-#include "x509_crt.h"
+#include "mbedtls/x509_crt.h"
 
 #include <pkcs11-helper-1.0/pkcs11h-certificate.h>
 

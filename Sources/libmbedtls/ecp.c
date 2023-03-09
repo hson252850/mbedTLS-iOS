@@ -552,6 +552,9 @@ static const mbedtls_ecp_curve_info ecp_supported_curves[] =
 #if defined(MBEDTLS_ECP_DP_CURVE448_ENABLED)
     { MBEDTLS_ECP_DP_CURVE448,     30,     448,    "x448"              },
 #endif
+#if defined(MBEDTLS_ECP_DP_SECP160R1_ENABLED)
+    { MBEDTLS_ECP_DP_SECP160R1,    10,     160,    "secp160r1"         },   // ToDo Note: 10???
+#endif
     { MBEDTLS_ECP_DP_NONE,          0,     0,      NULL                },
 };
 
@@ -1243,6 +1246,13 @@ cleanup:
     while( (N).s < 0 && mbedtls_mpi_cmp_int( &(N), 0 ) != 0 )           \
         MBEDTLS_MPI_CHK( mbedtls_mpi_add_mpi( &(N), &(N), &grp->P ) )
 
+#if ( defined(MBEDTLS_ECP_SHORT_WEIERSTRASS_ENABLED) && \
+      !( defined(MBEDTLS_ECP_NO_FALLBACK) && \
+         defined(MBEDTLS_ECP_DOUBLE_JAC_ALT) && \
+         defined(MBEDTLS_ECP_ADD_MIXED_ALT) ) ) || \
+    ( defined(MBEDTLS_ECP_MONTGOMERY_ENABLED) && \
+      !( defined(MBEDTLS_ECP_NO_FALLBACK) && \
+         defined(MBEDTLS_ECP_DOUBLE_ADD_MXZ_ALT) ) )
 static inline int mbedtls_mpi_sub_mod( const mbedtls_ecp_group *grp,
                                        mbedtls_mpi *X,
                                        const mbedtls_mpi *A,
@@ -1254,6 +1264,7 @@ static inline int mbedtls_mpi_sub_mod( const mbedtls_ecp_group *grp,
 cleanup:
     return( ret );
 }
+#endif /* All functions referencing mbedtls_mpi_sub_mod() are alt-implemented without fallback */
 
 /*
  * Reduce a mbedtls_mpi mod p in-place, to use after mbedtls_mpi_add_mpi and mbedtls_mpi_mul_int.
@@ -1276,6 +1287,10 @@ cleanup:
     return( ret );
 }
 
+#if defined(MBEDTLS_ECP_SHORT_WEIERSTRASS_ENABLED) && \
+    !( defined(MBEDTLS_ECP_NO_FALLBACK) && \
+       defined(MBEDTLS_ECP_DOUBLE_JAC_ALT) && \
+       defined(MBEDTLS_ECP_ADD_MIXED_ALT) )
 static inline int mbedtls_mpi_shift_l_mod( const mbedtls_ecp_group *grp,
                                            mbedtls_mpi *X,
                                            size_t count )
@@ -1286,6 +1301,7 @@ static inline int mbedtls_mpi_shift_l_mod( const mbedtls_ecp_group *grp,
 cleanup:
     return( ret );
 }
+#endif /* All functions referencing mbedtls_mpi_shift_l_mod() are alt-implemented without fallback */
 
 #if defined(MBEDTLS_ECP_SHORT_WEIERSTRASS_ENABLED)
 /*
@@ -1302,9 +1318,6 @@ cleanup:
  */
 static int ecp_normalize_jac( const mbedtls_ecp_group *grp, mbedtls_ecp_point *pt )
 {
-    int ret = MBEDTLS_ERR_ERROR_CORRUPTION_DETECTED;
-    mbedtls_mpi Zi, ZZi;
-
     if( mbedtls_mpi_cmp_int( &pt->Z, 0 ) == 0 )
         return( 0 );
 
@@ -1313,6 +1326,11 @@ static int ecp_normalize_jac( const mbedtls_ecp_group *grp, mbedtls_ecp_point *p
         return( mbedtls_internal_ecp_normalize_jac( grp, pt ) );
 #endif /* MBEDTLS_ECP_NORMALIZE_JAC_ALT */
 
+#if defined(MBEDTLS_ECP_NO_FALLBACK) && defined(MBEDTLS_ECP_NORMALIZE_JAC_ALT)
+    return( MBEDTLS_ERR_ECP_FEATURE_UNAVAILABLE );
+#else
+    int ret = MBEDTLS_ERR_ERROR_CORRUPTION_DETECTED;
+    mbedtls_mpi Zi, ZZi;
     mbedtls_mpi_init( &Zi ); mbedtls_mpi_init( &ZZi );
 
     /*
@@ -1338,6 +1356,7 @@ cleanup:
     mbedtls_mpi_free( &Zi ); mbedtls_mpi_free( &ZZi );
 
     return( ret );
+#endif /* !defined(MBEDTLS_ECP_NO_FALLBACK) || !defined(MBEDTLS_ECP_NORMALIZE_JAC_ALT) */
 }
 
 /*
@@ -1354,10 +1373,6 @@ cleanup:
 static int ecp_normalize_jac_many( const mbedtls_ecp_group *grp,
                                    mbedtls_ecp_point *T[], size_t T_size )
 {
-    int ret = MBEDTLS_ERR_ERROR_CORRUPTION_DETECTED;
-    size_t i;
-    mbedtls_mpi *c, u, Zi, ZZi;
-
     if( T_size < 2 )
         return( ecp_normalize_jac( grp, *T ) );
 
@@ -1365,6 +1380,13 @@ static int ecp_normalize_jac_many( const mbedtls_ecp_group *grp,
     if( mbedtls_internal_ecp_grp_capable( grp ) )
         return( mbedtls_internal_ecp_normalize_jac_many( grp, T, T_size ) );
 #endif
+
+#if defined(MBEDTLS_ECP_NO_FALLBACK) && defined(MBEDTLS_ECP_NORMALIZE_JAC_MANY_ALT)
+    return( MBEDTLS_ERR_ECP_FEATURE_UNAVAILABLE );
+#else
+    int ret = MBEDTLS_ERR_ERROR_CORRUPTION_DETECTED;
+    size_t i;
+    mbedtls_mpi *c, u, Zi, ZZi;
 
     if( ( c = mbedtls_calloc( T_size, sizeof( mbedtls_mpi ) ) ) == NULL )
         return( MBEDTLS_ERR_ECP_ALLOC_FAILED );
@@ -1433,6 +1455,7 @@ cleanup:
     mbedtls_free( c );
 
     return( ret );
+#endif /* !defined(MBEDTLS_ECP_NO_FALLBACK) || !defined(MBEDTLS_ECP_NORMALIZE_JAC_MANY_ALT) */
 }
 
 /*
@@ -1477,9 +1500,6 @@ cleanup:
 static int ecp_double_jac( const mbedtls_ecp_group *grp, mbedtls_ecp_point *R,
                            const mbedtls_ecp_point *P )
 {
-    int ret = MBEDTLS_ERR_ERROR_CORRUPTION_DETECTED;
-    mbedtls_mpi M, S, T, U;
-
 #if defined(MBEDTLS_SELF_TEST)
     dbl_count++;
 #endif
@@ -1488,6 +1508,12 @@ static int ecp_double_jac( const mbedtls_ecp_group *grp, mbedtls_ecp_point *R,
     if( mbedtls_internal_ecp_grp_capable( grp ) )
         return( mbedtls_internal_ecp_double_jac( grp, R, P ) );
 #endif /* MBEDTLS_ECP_DOUBLE_JAC_ALT */
+
+#if defined(MBEDTLS_ECP_NO_FALLBACK) && defined(MBEDTLS_ECP_DOUBLE_JAC_ALT)
+    return( MBEDTLS_ERR_ECP_FEATURE_UNAVAILABLE );
+#else
+    int ret = MBEDTLS_ERR_ERROR_CORRUPTION_DETECTED;
+    mbedtls_mpi M, S, T, U;
 
     mbedtls_mpi_init( &M ); mbedtls_mpi_init( &S ); mbedtls_mpi_init( &T ); mbedtls_mpi_init( &U );
 
@@ -1550,6 +1576,7 @@ cleanup:
     mbedtls_mpi_free( &M ); mbedtls_mpi_free( &S ); mbedtls_mpi_free( &T ); mbedtls_mpi_free( &U );
 
     return( ret );
+#endif /* !defined(MBEDTLS_ECP_NO_FALLBACK) || !defined(MBEDTLS_ECP_DOUBLE_JAC_ALT) */
 }
 
 /*
@@ -1573,9 +1600,6 @@ cleanup:
 static int ecp_add_mixed( const mbedtls_ecp_group *grp, mbedtls_ecp_point *R,
                           const mbedtls_ecp_point *P, const mbedtls_ecp_point *Q )
 {
-    int ret = MBEDTLS_ERR_ERROR_CORRUPTION_DETECTED;
-    mbedtls_mpi T1, T2, T3, T4, X, Y, Z;
-
 #if defined(MBEDTLS_SELF_TEST)
     add_count++;
 #endif
@@ -1584,6 +1608,12 @@ static int ecp_add_mixed( const mbedtls_ecp_group *grp, mbedtls_ecp_point *R,
     if( mbedtls_internal_ecp_grp_capable( grp ) )
         return( mbedtls_internal_ecp_add_mixed( grp, R, P, Q ) );
 #endif /* MBEDTLS_ECP_ADD_MIXED_ALT */
+
+#if defined(MBEDTLS_ECP_NO_FALLBACK) && defined(MBEDTLS_ECP_ADD_MIXED_ALT)
+    return( MBEDTLS_ERR_ECP_FEATURE_UNAVAILABLE );
+#else
+    int ret = MBEDTLS_ERR_ERROR_CORRUPTION_DETECTED;
+    mbedtls_mpi T1, T2, T3, T4, X, Y, Z;
 
     /*
      * Trivial cases: P == 0 or Q == 0 (case 1)
@@ -1649,6 +1679,7 @@ cleanup:
     mbedtls_mpi_free( &X ); mbedtls_mpi_free( &Y ); mbedtls_mpi_free( &Z );
 
     return( ret );
+#endif /* !defined(MBEDTLS_ECP_NO_FALLBACK) || !defined(MBEDTLS_ECP_ADD_MIXED_ALT) */
 }
 
 /*
@@ -1661,17 +1692,19 @@ cleanup:
 static int ecp_randomize_jac( const mbedtls_ecp_group *grp, mbedtls_ecp_point *pt,
                 int (*f_rng)(void *, unsigned char *, size_t), void *p_rng )
 {
-    int ret = MBEDTLS_ERR_ERROR_CORRUPTION_DETECTED;
-    mbedtls_mpi l, ll;
-    size_t p_size;
-    int count = 0;
-
 #if defined(MBEDTLS_ECP_RANDOMIZE_JAC_ALT)
     if( mbedtls_internal_ecp_grp_capable( grp ) )
         return( mbedtls_internal_ecp_randomize_jac( grp, pt, f_rng, p_rng ) );
 #endif /* MBEDTLS_ECP_RANDOMIZE_JAC_ALT */
 
-    p_size = ( grp->pbits + 7 ) / 8;
+#if defined(MBEDTLS_ECP_NO_FALLBACK) && defined(MBEDTLS_ECP_RANDOMIZE_JAC_ALT)
+    return( MBEDTLS_ERR_ECP_FEATURE_UNAVAILABLE );
+#else
+    int ret = MBEDTLS_ERR_ERROR_CORRUPTION_DETECTED;
+    mbedtls_mpi l, ll;
+    int count = 0;
+    size_t p_size = ( grp->pbits + 7 ) / 8;
+
     mbedtls_mpi_init( &l ); mbedtls_mpi_init( &ll );
 
     /* Generate l such that 1 < l < p */
@@ -1705,6 +1738,7 @@ cleanup:
     mbedtls_mpi_free( &l ); mbedtls_mpi_free( &ll );
 
     return( ret );
+#endif /* !defined(MBEDTLS_ECP_NO_FALLBACK) || !defined(MBEDTLS_ECP_RANDOMIZE_JAC_ALT) */
 }
 
 /*
@@ -2413,19 +2447,22 @@ cleanup:
  */
 static int ecp_normalize_mxz( const mbedtls_ecp_group *grp, mbedtls_ecp_point *P )
 {
-    int ret = MBEDTLS_ERR_ERROR_CORRUPTION_DETECTED;
-
 #if defined(MBEDTLS_ECP_NORMALIZE_MXZ_ALT)
     if( mbedtls_internal_ecp_grp_capable( grp ) )
         return( mbedtls_internal_ecp_normalize_mxz( grp, P ) );
 #endif /* MBEDTLS_ECP_NORMALIZE_MXZ_ALT */
 
+#if defined(MBEDTLS_ECP_NO_FALLBACK) && defined(MBEDTLS_ECP_NORMALIZE_MXZ_ALT)
+    return( MBEDTLS_ERR_ECP_FEATURE_UNAVAILABLE );
+#else
+    int ret = MBEDTLS_ERR_ERROR_CORRUPTION_DETECTED;
     MBEDTLS_MPI_CHK( mbedtls_mpi_inv_mod( &P->Z, &P->Z, &grp->P ) );
     MBEDTLS_MPI_CHK( mbedtls_mpi_mul_mod( grp, &P->X, &P->X, &P->Z ) );
     MBEDTLS_MPI_CHK( mbedtls_mpi_lset( &P->Z, 1 ) );
 
 cleanup:
     return( ret );
+#endif /* !defined(MBEDTLS_ECP_NO_FALLBACK) || !defined(MBEDTLS_ECP_NORMALIZE_MXZ_ALT) */
 }
 
 /*
@@ -2439,17 +2476,18 @@ cleanup:
 static int ecp_randomize_mxz( const mbedtls_ecp_group *grp, mbedtls_ecp_point *P,
                 int (*f_rng)(void *, unsigned char *, size_t), void *p_rng )
 {
-    int ret = MBEDTLS_ERR_ERROR_CORRUPTION_DETECTED;
-    mbedtls_mpi l;
-    size_t p_size;
-    int count = 0;
-
 #if defined(MBEDTLS_ECP_RANDOMIZE_MXZ_ALT)
     if( mbedtls_internal_ecp_grp_capable( grp ) )
         return( mbedtls_internal_ecp_randomize_mxz( grp, P, f_rng, p_rng );
 #endif /* MBEDTLS_ECP_RANDOMIZE_MXZ_ALT */
 
-    p_size = ( grp->pbits + 7 ) / 8;
+#if defined(MBEDTLS_ECP_NO_FALLBACK) && defined(MBEDTLS_ECP_RANDOMIZE_MXZ_ALT)
+    return( MBEDTLS_ERR_ECP_FEATURE_UNAVAILABLE );
+#else
+    int ret = MBEDTLS_ERR_ERROR_CORRUPTION_DETECTED;
+    mbedtls_mpi l;
+    int count = 0;
+    size_t p_size = ( grp->pbits + 7 ) / 8;
     mbedtls_mpi_init( &l );
 
     /* Generate l such that 1 < l < p */
@@ -2475,6 +2513,7 @@ cleanup:
     mbedtls_mpi_free( &l );
 
     return( ret );
+#endif /* !defined(MBEDTLS_ECP_NO_FALLBACK) || !defined(MBEDTLS_ECP_RANDOMIZE_MXZ_ALT) */
 }
 
 /*
@@ -2497,13 +2536,16 @@ static int ecp_double_add_mxz( const mbedtls_ecp_group *grp,
                                const mbedtls_ecp_point *P, const mbedtls_ecp_point *Q,
                                const mbedtls_mpi *d )
 {
-    int ret = MBEDTLS_ERR_ERROR_CORRUPTION_DETECTED;
-    mbedtls_mpi A, AA, B, BB, E, C, D, DA, CB;
-
 #if defined(MBEDTLS_ECP_DOUBLE_ADD_MXZ_ALT)
     if( mbedtls_internal_ecp_grp_capable( grp ) )
         return( mbedtls_internal_ecp_double_add_mxz( grp, R, S, P, Q, d ) );
 #endif /* MBEDTLS_ECP_DOUBLE_ADD_MXZ_ALT */
+
+#if defined(MBEDTLS_ECP_NO_FALLBACK) && defined(MBEDTLS_ECP_DOUBLE_ADD_MXZ_ALT)
+    return( MBEDTLS_ERR_ECP_FEATURE_UNAVAILABLE );
+#else
+    int ret = MBEDTLS_ERR_ERROR_CORRUPTION_DETECTED;
+    mbedtls_mpi A, AA, B, BB, E, C, D, DA, CB;
 
     mbedtls_mpi_init( &A ); mbedtls_mpi_init( &AA ); mbedtls_mpi_init( &B );
     mbedtls_mpi_init( &BB ); mbedtls_mpi_init( &E ); mbedtls_mpi_init( &C );
@@ -2534,6 +2576,7 @@ cleanup:
     mbedtls_mpi_free( &D ); mbedtls_mpi_free( &DA ); mbedtls_mpi_free( &CB );
 
     return( ret );
+#endif /* !defined(MBEDTLS_ECP_NO_FALLBACK) || !defined(MBEDTLS_ECP_DOUBLE_ADD_MXZ_ALT) */
 }
 
 /*
@@ -3497,6 +3540,80 @@ cleanup:
 
     return( ret );
 }
+
+#if 0
+#include "mbedtls/base64.h"
+#include "mbedtls/bignum.h"
+#include "mbedtls/ecp.h"
+#include "FreeRTOS.h"
+#include "task.h"
+
+// Note: Need more task stack size
+void xiaoai_secp160r1_test()
+{
+    int ret = 0;
+
+    // init r'
+    mbedtls_mpi r1;
+    mbedtls_mpi_init(&r1);
+    uint8_t r_array[32] = {
+        0xF1, 0xF2, 0xF3, 0xF4, 0xF5, 0xF6, 0xF7, 0xF8,
+        0x09, 0x0A, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06,
+        0x07, 0x08, 0x09, 0x0A, 0x01, 0x02, 0x03, 0x04,
+        0x05, 0x06, 0x07, 0x08, 0x09, 0x0A, 0x01, 0x02,
+    };
+    MBEDTLS_MPI_CHK( mbedtls_mpi_read_binary(&r1, r_array, 32) );
+
+    // r = r' mod n
+    mbedtls_ecp_group grp;
+    mbedtls_ecp_group_init(&grp);
+    MBEDTLS_MPI_CHK( mbedtls_ecp_group_load(&grp, MBEDTLS_ECP_DP_SECP160R1) );
+    mbedtls_mpi r;
+    mbedtls_mpi_init(&r);
+    ret = mbedtls_mpi_mod_mpi(&r, &r1, &grp.N);
+    if (ret == 0) {
+        uint8_t r_out_array[32] = {0};
+        size_t len = mbedtls_mpi_size(&r);
+        mbedtls_mpi_write_binary(&r, r_out_array, len);
+        unsigned char dst[100] = {0};
+        size_t olen = 0;
+        ret = mbedtls_base64_encode(dst, 100, &olen, r_out_array, len);
+        printf("secp160r1_test r=%s\r\n", dst);
+    } else {
+        printf("secp160r1_test r=r1 mode n: error ret=%d\r\n", ret);
+    }
+
+    // R = r * G
+    mbedtls_ecp_point R;
+    mbedtls_ecp_point_init(&R);
+    ret = mbedtls_ecp_mul(&grp, &R, &r, &grp.G, NULL, NULL);
+    if (ret == 0) {
+        uint8_t r_out_array[32] = {0};
+        size_t len = mbedtls_mpi_size(&R.X);
+        printf("secp160r1_test R.x_len=%d\r\n", len);
+        mbedtls_mpi_write_binary(&R.X, r_out_array, len);
+        unsigned char dst[100] = {0};
+        size_t olen = 0;
+        ret = mbedtls_base64_encode(dst, 100, &olen, r_out_array, len);
+        printf("secp160r1_test R.x=%s\r\n", dst);
+    } else {
+        printf("secp160r1_test R = r * G: error ret=%d\r\n", ret);
+    }
+
+    uint32_t water = uxTaskGetStackHighWaterMark(NULL);
+    printf("secp160r1_test water=%d\r\n", water);
+
+cleanup:
+    if (ret < 0) {
+        printf("secp160r1_test r: error ret=%d\r\n", ret);
+    }
+
+   mbedtls_mpi_free(&r1);
+   mbedtls_mpi_free(&r);
+   mbedtls_ecp_group_free(&grp);
+   mbedtls_ecp_point_free(&R);
+}
+#endif
 
 #endif /* MBEDTLS_SELF_TEST */
 

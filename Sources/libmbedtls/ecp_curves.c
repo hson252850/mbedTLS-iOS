@@ -85,6 +85,48 @@
  */
 
 /*
+ * Domain parameters for secp160r1
+ */
+#if defined(MBEDTLS_ECP_DP_SECP160R1_ENABLED)
+static const mbedtls_mpi_uint secp160r1_p[] = {
+    // ffffffffffffffff ffffffffffffffff 7fffffff
+    BYTES_TO_T_UINT_8( 0xFF, 0xFF, 0xFF, 0x7F, 0xFF, 0xFF, 0xFF, 0xFF ),
+    BYTES_TO_T_UINT_8( 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF ),
+    BYTES_TO_T_UINT_4( 0xFF, 0xFF, 0xFF, 0xFF),
+};
+static const mbedtls_mpi_uint secp160r1_a[] = {
+    // ffffffffffffffff ffffffffffffffff 7ffffffc
+    BYTES_TO_T_UINT_8( 0xFC, 0xFF, 0xFF, 0x7F, 0xFF, 0xFF, 0xFF, 0xFF ),
+    BYTES_TO_T_UINT_8( 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF ),
+    BYTES_TO_T_UINT_4( 0xFF, 0xFF, 0xFF, 0xFF),
+};
+static const mbedtls_mpi_uint secp160r1_b[] = {
+    // 1c97befc 54bd7a8b 65acf89f 81d4d4ad c565fa45
+    BYTES_TO_T_UINT_8( 0x45, 0xFA, 0x65, 0xC5, 0xAD, 0xD4, 0xD4, 0x81 ),
+    BYTES_TO_T_UINT_8( 0x9F, 0xF8, 0xAC, 0x65, 0x8B, 0x7A, 0xBD, 0x54 ),
+    BYTES_TO_T_UINT_4( 0xFC, 0xBE, 0x97, 0x1C),
+};
+static const mbedtls_mpi_uint secp160r1_gx[] = {
+    // 4a96b568 8ef57328 46646989 68c38bb9 13cbfc82
+    BYTES_TO_T_UINT_8( 0x82, 0xFC, 0xCB, 0x13, 0xB9, 0x8B, 0xC3, 0x68 ),
+    BYTES_TO_T_UINT_8( 0x89, 0x69, 0x64, 0x46, 0x28, 0x73, 0xF5, 0x8E ),
+    BYTES_TO_T_UINT_4( 0x68, 0xB5, 0x96, 0x4A),
+};
+static const mbedtls_mpi_uint secp160r1_gy[] = {
+    // 23a62855 3168947d 59dcc912 04235137 7ac5fb32
+    BYTES_TO_T_UINT_8( 0x32, 0xFB, 0xC5, 0x7A, 0x37, 0x51, 0x23, 0x04 ),
+    BYTES_TO_T_UINT_8( 0x12, 0xC9, 0xDC, 0x59, 0x7D, 0x94, 0x68, 0x31 ),
+    BYTES_TO_T_UINT_4( 0x55, 0x28, 0xA6, 0x23),
+};
+static const mbedtls_mpi_uint secp160r1_n[] = {
+    // 01 00000000 00000000 0001f4c8 f927aed3 ca752257
+    BYTES_TO_T_UINT_8( 0x57, 0x22, 0x75, 0xCA, 0xD3, 0xAE, 0x27, 0xF9 ),
+    BYTES_TO_T_UINT_8( 0xC8, 0xF4, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00 ),
+    BYTES_TO_T_UINT_8( 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00 ),
+};
+#endif /* MBEDTLS_ECP_DP_SECP160R1_ENABLED */
+
+/*
  * Domain parameters for secp192r1
  */
 #if defined(MBEDTLS_ECP_DP_SECP192R1_ENABLED)
@@ -551,7 +593,8 @@ static const mbedtls_mpi_uint brainpoolP512r1_n[] = {
 };
 #endif /* MBEDTLS_ECP_DP_BP512R1_ENABLED */
 
-#if defined(MBEDTLS_ECP_DP_SECP192R1_ENABLED) ||   \
+#if defined(MBEDTLS_ECP_DP_SECP160R1_ENABLED) ||   \
+    defined(MBEDTLS_ECP_DP_SECP192R1_ENABLED) ||   \
     defined(MBEDTLS_ECP_DP_SECP224R1_ENABLED) ||   \
     defined(MBEDTLS_ECP_DP_SECP256R1_ENABLED) ||   \
     defined(MBEDTLS_ECP_DP_SECP384R1_ENABLED) ||   \
@@ -620,6 +663,9 @@ static int ecp_group_load( mbedtls_ecp_group *grp,
 #endif /* ECP_LOAD_GROUP */
 
 #if defined(MBEDTLS_ECP_NIST_OPTIM)
+#if defined(MBEDTLS_ECP_DP_SECP160R1_ENABLED)
+//#error "SECP160R cannot support ECP_NIST_OPTIM"
+#endif
 /* Forward declarations */
 #if defined(MBEDTLS_ECP_DP_SECP192R1_ENABLED)
 static int ecp_mod_p192( mbedtls_mpi * );
@@ -774,6 +820,11 @@ int mbedtls_ecp_group_load( mbedtls_ecp_group *grp, mbedtls_ecp_group_id id )
 
     switch( id )
     {
+#if defined(MBEDTLS_ECP_DP_SECP160R1_ENABLED)
+        case MBEDTLS_ECP_DP_SECP160R1:
+            return( LOAD_GROUP_A( secp160r1 ) );
+#endif /* MBEDTLS_ECP_DP_SECP160R1_ENABLED */
+
 #if defined(MBEDTLS_ECP_DP_SECP192R1_ENABLED)
         case MBEDTLS_ECP_DP_SECP192R1:
             NIST_MODP( p192 );

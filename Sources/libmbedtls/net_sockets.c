@@ -26,11 +26,12 @@
 #include "common.h"
 
 #if defined(MBEDTLS_NET_C)
-
+#ifndef MBEDTLS_MTK
 #if !defined(unix) && !defined(__unix__) && !defined(__unix) && \
     !defined(__APPLE__) && !defined(_WIN32) && !defined(__QNXNTO__) && \
     !defined(__HAIKU__) && !defined(__midipix__)
 #error "This module only works on Unix and Windows, see MBEDTLS_NET_C in config.h"
+#endif
 #endif
 
 #if defined(MBEDTLS_PLATFORM_C)
@@ -78,14 +79,21 @@ static int wsa_init_done = 0;
 
 #else /* ( _WIN32 || _WIN32_WCE ) && !EFIX64 && !EFI32 */
 
+#ifdef MBEDTLS_MTK   //MT7687 mbedTLS enable
+#include <sockets.h>
+#include <sockets_mbedtls.h>
+#include <inet.h>
+#include <stdlib.h>
+#else
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <sys/time.h>
 #include <unistd.h>
-#include <signal.h>
 #include <fcntl.h>
+#endif /* MBEDTLS_MTK */
+#include <signal.h>
 #include <netdb.h>
 #include <errno.h>
 
@@ -125,7 +133,9 @@ static int net_prepare( void )
     }
 #else
 #if !defined(EFIX64) && !defined(EFI32)
+#ifndef MBEDTLS_MTK
     signal( SIGPIPE, SIG_IGN );
+#endif
 #endif
 #endif
     return( 0 );
@@ -284,7 +294,11 @@ static int net_would_block( const mbedtls_net_context *ctx )
     /*
      * Never return 'WOULD BLOCK' on a blocking socket
      */
+#ifndef MBEDTLS_MTK
     if( ( fcntl( ctx->fd, F_GETFL ) & O_NONBLOCK ) != O_NONBLOCK )
+#else
+    if( ( fcntl( ctx->fd, F_GETFL, 0 ) & O_NONBLOCK ) != O_NONBLOCK )
+#endif
     {
         errno = err;
         return( 0 );
@@ -410,6 +424,7 @@ int mbedtls_net_accept( mbedtls_net_context *bind_ctx,
         }
         else
         {
+#if LWIP_IPV6
             struct sockaddr_in6 *addr6 = (struct sockaddr_in6 *) &client_addr;
             *ip_len = sizeof( addr6->sin6_addr.s6_addr );
 
@@ -417,6 +432,7 @@ int mbedtls_net_accept( mbedtls_net_context *bind_ctx,
                 return( MBEDTLS_ERR_NET_BUFFER_TOO_SMALL );
 
             memcpy( client_ip, &addr6->sin6_addr.s6_addr, *ip_len);
+#endif
         }
     }
 
@@ -433,7 +449,11 @@ int mbedtls_net_set_block( mbedtls_net_context *ctx )
     u_long n = 0;
     return( ioctlsocket( ctx->fd, FIONBIO, &n ) );
 #else
+#ifndef MBEDTLS_MTK
     return( fcntl( ctx->fd, F_SETFL, fcntl( ctx->fd, F_GETFL ) & ~O_NONBLOCK ) );
+#else
+    return( fcntl( ctx->fd, F_SETFL, fcntl( ctx->fd, F_GETFL, 0 ) & ~O_NONBLOCK ) );
+#endif
 #endif
 }
 
@@ -444,7 +464,11 @@ int mbedtls_net_set_nonblock( mbedtls_net_context *ctx )
     u_long n = 1;
     return( ioctlsocket( ctx->fd, FIONBIO, &n ) );
 #else
+#ifndef MBEDTLS_MTK
     return( fcntl( ctx->fd, F_SETFL, fcntl( ctx->fd, F_GETFL ) | O_NONBLOCK ) );
+#else
+    return( fcntl( ctx->fd, F_SETFL, fcntl( ctx->fd, F_GETFL, 0 ) | O_NONBLOCK ) );
+#endif
 #endif
 }
 
@@ -464,6 +488,13 @@ int mbedtls_net_poll( mbedtls_net_context *ctx, uint32_t rw, uint32_t timeout )
 
     if( fd < 0 )
         return( MBEDTLS_ERR_NET_INVALID_CONTEXT );
+
+    /* A limitation of select() is that it only works with file descriptors
+     * that are strictly less than FD_SETSIZE. This is a limitation of the
+     * fd_set type. Error out early, because attempting to call FD_SET on a
+     * large file descriptor is a buffer overflow on typical platforms. */
+    if( fd >= FD_SETSIZE )
+        return( MBEDTLS_ERR_NET_POLL_FAILED );
 
 #if defined(__has_feature)
 #if __has_feature(memory_sanitizer)
@@ -583,6 +614,13 @@ int mbedtls_net_recv_timeout( void *ctx, unsigned char *buf,
 
     if( fd < 0 )
         return( MBEDTLS_ERR_NET_INVALID_CONTEXT );
+
+    /* A limitation of select() is that it only works with file descriptors
+     * that are strictly less than FD_SETSIZE. This is a limitation of the
+     * fd_set type. Error out early, because attempting to call FD_SET on a
+     * large file descriptor is a buffer overflow on typical platforms. */
+    if( fd >= FD_SETSIZE )
+        return( MBEDTLS_ERR_NET_POLL_FAILED );
 
     FD_ZERO( &read_fds );
     FD_SET( fd, &read_fds );

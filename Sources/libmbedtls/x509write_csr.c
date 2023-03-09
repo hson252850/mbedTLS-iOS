@@ -34,7 +34,7 @@
 
 #if defined(MBEDTLS_USE_PSA_CRYPTO)
 #include "psa/crypto.h"
-#include "mbedtls/psa_util.h"
+#include "psa_util.h"
 #endif
 
 #include <string.h>
